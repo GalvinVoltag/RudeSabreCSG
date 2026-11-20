@@ -1,6 +1,13 @@
-# SabreCSG
+# AI Disclosure
+Most of the modifications to this fork are made by Claude and Rool, not by me. I am in the process of turning this project into a legit one by rewriting said sections.
 
-SabreCSG is a set of level design tools for building complex levels quickly inside Unity.
+This was because I wanted to see if it was possible to make it work and alas, it is. If you work around the bugs and export your map, it will compile into a playable map.
+
+Give me some time to read through and understand how Sabre works in order to port it fully for Rude.
+
+# RudeSabreCSG
+
+RudeSabreCSG is a set of level design tools for building complex levels quickly inside Rude Level Editor based on SabreCSG.
 
 Using Constructive Solid Geometry techniques SabreCSG allows you to add and subtract brushes to create great levels without needing to understand 3D art packages.
 
@@ -13,10 +20,14 @@ Using Constructive Solid Geometry techniques SabreCSG allows you to add and subt
 SabreCSG was originally sold on the [Unity Asset Store](https://www.assetstore.unity3d.com/en/#!/content/47418), but as of 14th October 2016 has been [open sourced](http://sabrecsg.com/2016/10/14/sabrecsg-released-as-open-source/) under the MIT License (see LICENSE for details). It is now maintained on this [Github repository](https://github.com/sabresaurus/SabreCSG).
 
 ## Core Features:
+(ones starting with a + are extra to by RudeSabreCSG)
 
 - Boolean CSG algorithm supporting partial rebuilding.
+- +Subdivide resulting mesh into grids for vertex lighting to work.
 - Draw tools to rapidly create levels by drawing brushes directly.
 - Resize tools allow you to resize spaces intuitively.
+- +Chose between splitting resulting mesh per material, per brush, or per group.
+- +Have multiple CSGModel instances in the same scene for having multiple rooms.
 - Vertex tools to refine and add precision details.
 - Change materials or edit UVs with surface tools built for level design.
 - Clip planes allow you to bevel brushes or even split them in two.
@@ -25,6 +36,12 @@ SabreCSG was originally sold on the [Unity Asset Store](https://www.assetstore.u
 - Experimental Code API - Experimental support for procedurally generating levels through code.
 
 Documentation and videos on how to use SabreCSG are available at the [SabreCSG Learn website](http://sabrecsg.com/learn/) or the [wiki](https://github.com/sabresaurus/SabreCSG/wiki).
+
+Notes for how to get around certain bugs:
+- PerBrush and PerGroup splitting modes can cause bugs with UV and Face tools. I recommend setting it to PerMaterial during edit, and turning it on before export.
+- SubdivideVisualMesh breaks Face editor, preventing changing materials and UVs. Disable this dueing edit.
+- UI works sometimes, and doesn't in other times. If you can't click on any gizmos, then just move the camera a little with right click, or change your tool to Rotate or View.
+- The editor camera gets stuck sometimes. Changing Sabre tool to Face seems to relieve this bug at some times.
 
 ## Download
 
