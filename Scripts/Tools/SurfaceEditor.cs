@@ -1345,12 +1345,6 @@ namespace Sabresaurus.SabreCSG
                             string assetPath = AssetDatabase.GetAssetPath(newTexture);
                             TextureImporter importer = TextureImporter.GetAtPath(assetPath) as TextureImporter;
 
-                            // The importer may be null on Texture3D.
-                            if (importer == null)
-                            {
-                                continue;
-                            }
-
 #if UNITY_5_5_OR_NEWER
                             // Unity 5.5 refactored the TextureImporter, requiring slightly different logic
                             TextureImporterSettings importerSettings = new TextureImporterSettings();
@@ -1384,10 +1378,7 @@ namespace Sabresaurus.SabreCSG
                 Rect rect = GUILayoutUtility.GetLastRect();
                 rect.position += new Vector2(rect.width, 0);
                 Material drawMaterial = SabreCSGResources.GetPreviewMaterial();
-                if (secondaryTexture != null && secondaryTexture.dimension != UnityEngine.Rendering.TextureDimension.Tex2D)
-                    drawMaterial.mainTexture = null;
-                else
-                    drawMaterial.mainTexture = secondaryTexture;
+                drawMaterial.mainTexture = secondaryTexture;
 
                 if (PlayerSettings.colorSpace == ColorSpace.Linear)
                 {
@@ -2698,7 +2689,14 @@ namespace Sabresaurus.SabreCSG
                 polygon.UserExcludeFromFinal = false;
             }
 
-            AddAndUpdateMesh(csgModel.GetVisualPolygonEntry(sourcePolygon.UniqueIndex), sourcePolygon, true);
+            if (csgModel.LastBuildSplitMeshes)
+            {
+                RebuildBrushOwning(sourcePolygon);
+            }
+            else
+            {
+                AddAndUpdateMesh(csgModel.GetVisualPolygonEntry(sourcePolygon.UniqueIndex), sourcePolygon, true);
+            }
             AddAndUpdateMesh(csgModel.GetCollisionPolygonEntry(sourcePolygon.UniqueIndex), sourcePolygon, false);
 
             // Mesh colliders need to be refreshed now that their collision meshes have changed
@@ -2812,6 +2810,17 @@ namespace Sabresaurus.SabreCSG
             entry.BuiltMesh.triangles = triangles;
         }
 
+        private void RebuildBrushOwning(Polygon sourcePolygon)
+        {
+            Brush brush = csgModel.FindBrushFromPolygon(sourcePolygon);
+            if (brush != null)
+            {
+                brush.RecachePolygons(true);
+            }
+
+            csgModel.RequestRebuild();
+        }
+
         private void ChangePolygonMaterial(Polygon polygon, Material destinationMaterial)
         {
             Material defaultMaterial = CSGModel.GetDefaultMaterial();
@@ -2827,6 +2836,13 @@ namespace Sabresaurus.SabreCSG
 
             // Repoint the polygon's material, so it will change with rebuilds
             polygon.Material = destinationMaterial;
+
+            // Moving the polygon to another material's mesh would lose track of which brush or group it belongs to
+            if (csgModel.LastBuildSplitMeshes)
+            {
+                RebuildBrushOwning(polygon);
+                return;
+            }
 
             if (!PolygonEntry.IsValidAndBuilt(entry))
             {

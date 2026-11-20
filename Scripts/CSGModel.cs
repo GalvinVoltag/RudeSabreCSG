@@ -310,8 +310,9 @@ namespace Sabresaurus.SabreCSG
             Event e = Event.current;
 
 #if UNITY_2021_2_OR_NEWER
-            if (SabreToolbarOverlay.Instance != null) SabreToolbarOverlay.Instance.displayed = EditMode;
-            if (SabreToolsOverlay.Instance != null) SabreToolsOverlay.Instance.displayed = EditMode;
+            bool overlayShouldShow = GetActiveCSGModel() != null;
+            if (SabreToolbarOverlay.Instance != null) SabreToolbarOverlay.Instance.displayed = overlayShouldShow;
+            if (SabreToolsOverlay.Instance != null) SabreToolsOverlay.Instance.displayed = overlayShouldShow;
 #endif
 
             if (!EditMode)
@@ -355,11 +356,12 @@ namespace Sabresaurus.SabreCSG
                 HandleUtility.AddDefaultControl(GUIUtility.GetControlID(FocusType.Passive));
             }
 
-            if (EditMode && CurrentSettings.OverrideMode != OverrideMode.TransformModel)
-            {
-                // In CSG mode, prevent the normal tools, so that the user must use our tools instead
-                Tools.current = UnityEditor.Tool.None;
-            }
+            // comment this line out, because the user mustn't anything, at most they should.
+            // if (EditMode && CurrentSettings.OverrideMode != OverrideMode.TransformModel)
+            // {
+            //     // In CSG mode, prevent the normal tools, so that the user must use our tools instead
+            //     Tools.current = UnityEditor.Tool.None;
+            // }
 
             int concaveBrushCount = 0;
             for (int i = 0; i < brushes.Count; i++)
@@ -1293,6 +1295,16 @@ namespace Sabresaurus.SabreCSG
 
         private int frameIndex;
 
+        private bool rebuildRequested;
+
+        /// <summary>
+        /// Rebuilds any brushes that have been marked as unbuilt on the next editor update, even if auto rebuild is off.
+        /// </summary>
+        public void RequestRebuild()
+        {
+            rebuildRequested = true;
+        }
+
         private void OnEditorUpdate()
         {
             if (deferredSelection != null)
@@ -1311,8 +1323,10 @@ namespace Sabresaurus.SabreCSG
                     frameIndex -= 1000;
                 }
 
-                if (AutoRebuild && gameObject.activeInHierarchy && this.enabled)
+                if ((AutoRebuild || rebuildRequested) && gameObject.activeInHierarchy && this.enabled)
                 {
+                    rebuildRequested = false;
+
                     //					if(frameIndex % 30 == 0)
                     {
                         Build(false, false);
@@ -1359,10 +1373,8 @@ namespace Sabresaurus.SabreCSG
                 // Then resubscribe and repaint
                 isSubscribedToDuringSceneGui = true;
 #if UNITY_2019_1_OR_NEWER
-                SceneView.duringSceneGui -= OnSceneGUI;
                 SceneView.duringSceneGui += OnSceneGUI;
 #else
-                SceneView.onSceneGUIDelegate -= OnSceneGUI;
                 SceneView.onSceneGUIDelegate += OnSceneGUI;
 #endif
                 SceneView.RepaintAll();

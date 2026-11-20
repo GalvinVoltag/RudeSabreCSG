@@ -13,9 +13,12 @@ namespace Sabresaurus.SabreCSG
 
         private SerializedProperty generateCollisionMeshesProperty;
         private SerializedProperty generateTangentsProperty;
+        private SerializedProperty meshSplitModeProperty;
         private SerializedProperty optimizeGeometryProperty;
         private SerializedProperty saveMeshesAsAssetsProperty;
         private SerializedProperty generateLightmapUVsProperty;
+        private SerializedProperty subdivideVisualMeshProperty;
+        private SerializedProperty subdivisionCellSizeProperty;
 
         private SerializedProperty unwrapAngleErrorProperty;
         private SerializedProperty unwrapAreaErrorProperty;
@@ -43,9 +46,12 @@ namespace Sabresaurus.SabreCSG
             // Build settings for the next build
             generateCollisionMeshesProperty = serializedObject.FindProperty("buildSettings.GenerateCollisionMeshes");
             generateTangentsProperty = serializedObject.FindProperty("buildSettings.GenerateTangents");
+            meshSplitModeProperty = serializedObject.FindProperty("buildSettings.MeshSplitMode");
             optimizeGeometryProperty = serializedObject.FindProperty("buildSettings.OptimizeGeometry");
             saveMeshesAsAssetsProperty = serializedObject.FindProperty("buildSettings.SaveMeshesAsAssets");
             generateLightmapUVsProperty = serializedObject.FindProperty("buildSettings.GenerateLightmapUVs");
+            subdivideVisualMeshProperty = serializedObject.FindProperty("buildSettings.SubdivideVisualMesh");
+            subdivisionCellSizeProperty = serializedObject.FindProperty("buildSettings.SubdivisionCellSize");
 
             unwrapAngleErrorProperty = serializedObject.FindProperty("buildSettings.UnwrapAngleError");
             unwrapAreaErrorProperty = serializedObject.FindProperty("buildSettings.UnwrapAreaError");
@@ -83,6 +89,7 @@ namespace Sabresaurus.SabreCSG
 
                 EditorGUILayout.PropertyField(generateCollisionMeshesProperty, new GUIContent("Generate Collision Meshes"));
                 EditorGUILayout.PropertyField(generateTangentsProperty, new GUIContent("Generate Tangents"));
+                EditorGUILayout.PropertyField(meshSplitModeProperty, new GUIContent("Mesh Split Mode", "How the built geometry is divided into meshes. Every mesh still uses a single material."));
 
                 EditorGUILayout.PropertyField(generateLightmapUVsProperty, new GUIContent("Generate Lightmap UVs"));
                 EditorGUIUtility.labelWidth = 125;
@@ -97,6 +104,16 @@ namespace Sabresaurus.SabreCSG
                 EditorGUIUtility.labelWidth = 0;
                 GUI.enabled = true;
 
+                EditorGUIUtility.labelWidth = 160;
+                EditorGUILayout.PropertyField(subdivideVisualMeshProperty, new GUIContent("Subdivide Visual Mesh"));
+                GUI.enabled = subdivideVisualMeshProperty.boolValue;
+                EditorGUI.indentLevel = 1;
+                EditorGUIUtility.labelWidth = 125;
+                EditorGUILayout.PropertyField(subdivisionCellSizeProperty, new GUIContent("Cell Size (units)"));
+                EditorGUI.indentLevel = 0;
+                EditorGUIUtility.labelWidth = 160;
+                GUI.enabled = true;
+
                 EditorGUILayout.PropertyField(shadowCastingModeProperty, new GUIContent("Shadow Casting Mode"));
                 EditorGUILayout.PropertyField(reflectionProbeUsageProperty, new GUIContent("Reflection Probes"));
 
@@ -104,7 +121,9 @@ namespace Sabresaurus.SabreCSG
                 GUILayout.Label("Experimental", EditorStyles.boldLabel);
                 EditorGUI.indentLevel = 1;
 
-                EditorGUILayout.PropertyField(optimizeGeometryProperty, new GUIContent("Optimize Geometry"));
+                EditorGUI.BeginDisabledGroup(meshSplitModeProperty.enumValueIndex != (int)MeshSplitMode.PerMaterial);
+                EditorGUILayout.PropertyField(optimizeGeometryProperty, new GUIContent("Optimize Geometry", "Not available when meshes are split per brush or group."));
+                EditorGUI.EndDisabledGroup();
                 EditorGUILayout.PropertyField(saveMeshesAsAssetsProperty, new GUIContent("Save Meshes As Assets"));
                 EditorGUI.indentLevel = 0;
             }

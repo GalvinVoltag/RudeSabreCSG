@@ -130,19 +130,21 @@ namespace Sabresaurus.SabreCSG
 
 		public static Vector2 ConvertMousePointPosition(Vector2 sourceMousePosition, bool convertPointsToPixels = true)
 	    {
+		    sourceMousePosition = HandleUtility.GUIPointToScreenPixelCoordinate(sourceMousePosition);
 #if UNITY_5_4_OR_NEWER
-			if(convertPointsToPixels)
+			if(!convertPointsToPixels)
 			{
-				sourceMousePosition = EditorGUIUtility.PointsToPixels(sourceMousePosition);
-                // Flip the direction of Y and remove the Scene View top toolbar's height
-                sourceMousePosition.y = Screen.height - sourceMousePosition.y - (TOOLBAR_HEIGHT * EditorGUIUtility.pixelsPerPoint);
-            }
-            else
-            {
-                // Flip the direction of Y and remove the Scene View top toolbar's height
-				float screenHeightPoints = (Screen.height / EditorGUIUtility.pixelsPerPoint);
-				sourceMousePosition.y = screenHeightPoints - sourceMousePosition.y - (TOOLBAR_HEIGHT);
-            }
+				sourceMousePosition = EditorGUIUtility.PixelsToPoints(sourceMousePosition);
+				// sourceMousePosition = EditorGUIUtility.PointsToPixels(sourceMousePosition);
+				// Flip the direction of Y and remove the Scene View top toolbar's height
+				// sourceMousePosition.y = Screen.height - sourceMousePosition.y - (TOOLBAR_HEIGHT * EditorGUIUtility.pixelsPerPoint);
+			}
+    //         else
+    //         {
+    //             // Flip the direction of Y and remove the Scene View top toolbar's height
+				// float screenHeightPoints = (Screen.height / EditorGUIUtility.pixelsPerPoint);
+				// sourceMousePosition.y = screenHeightPoints - sourceMousePosition.y - (TOOLBAR_HEIGHT);
+    //         }
 			
 #else
 			// Flip the direction of Y and remove the Scene View top toolbar's height

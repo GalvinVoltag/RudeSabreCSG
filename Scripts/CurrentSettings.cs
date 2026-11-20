@@ -337,6 +337,7 @@ namespace Sabresaurus.SabreCSG
                 // Occassionally have experienced issues where camera locks up, resetting the Tools class seems to fix it
                 Tools.viewTool = ViewTool.None;
                 Tools.current = UnityEditor.Tool.None;
+                
             }
         }
 

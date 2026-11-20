@@ -161,6 +161,17 @@ namespace Sabresaurus.SabreCSG
         }
 
         /// <summary>
+        /// Whether the built meshes are split per brush or group rather than just per material.
+        /// </summary>
+        public bool LastBuildSplitMeshes
+        {
+            get
+            {
+                return lastBuildSettings.IsSplittingMeshes;
+            }
+        }
+
+        /// <summary>
         /// Get the list of brushes the CSG Model knows about
         /// </summary>
         /// <returns>List of brushes.</returns>

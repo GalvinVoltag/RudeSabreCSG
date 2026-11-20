@@ -6,6 +6,19 @@ using UnityEngine.Rendering;
 
 namespace Sabresaurus.SabreCSG
 {
+    /// <summary>
+    /// Decides which polygons end up sharing a built visual mesh. Every mode still keeps one material per mesh.
+    /// </summary>
+    public enum MeshSplitMode
+    {
+        /// <summary>All polygons using the same material share a mesh.</summary>
+        PerMaterial,
+        /// <summary>Each brush gets its own meshes. Compound brushes count as a single brush.</summary>
+        PerBrush,
+        /// <summary>Each group brush gets its own meshes. Brushes outside of any group fall back to per brush.</summary>
+        PerGroup,
+    }
+
     [System.Serializable]
     public class CSGBuildSettings
     {
@@ -15,13 +28,36 @@ namespace Sabresaurus.SabreCSG
         // Also calculate tangents (needed for Unity's built in bump mapping)
         public bool GenerateTangents = true;
 
+        public MeshSplitMode MeshSplitMode = MeshSplitMode.PerMaterial;
+
         public bool OptimizeGeometry = false;
+
+        // Optimized geometry is only supported when meshes are split per material
+        public bool UsesOptimizedGeometry
+        {
+            get { return OptimizeGeometry && !IsSplittingMeshes; }
+        }
+
+        public bool IsSplittingMeshes
+        {
+            get { return MeshSplitMode != MeshSplitMode.PerMaterial; }
+        }
 
         public bool SaveMeshesAsAssets = false;
 
         // Generate a UV2 channel for lightmapping
         [Tooltip("Note that when enabled this will have a non-trivial increase in build times")]
         public bool GenerateLightmapUVs = false;
+
+        // Split the generated visual mesh along a world space grid so large flat surfaces have
+        // enough vertices for per vertex lighting (e.g. ULTRAKILL's vertex lit shaders). Collision
+        // meshes are left untouched.
+        public bool SubdivideVisualMesh = false;
+
+        // Size of the subdivision grid in world units. Larger faces get an extra vertex every
+        // SubdivisionCellSize units in each direction.
+        [Range(0.25f, 32f)]
+        public float SubdivisionCellSize = 4f;
 
         // Unwrap settings, note these are different to what is displayed in the Model Importer, see http://docs.unity3d.com/401/Documentation/Manual/LightmappingUV.html
         [Range(0f, 1f)]
@@ -107,11 +143,23 @@ namespace Sabresaurus.SabreCSG
             {
                 return true;
             }
-            if (settings1.OptimizeGeometry != settings2.OptimizeGeometry)
+            if (settings1.MeshSplitMode != settings2.MeshSplitMode)
+            {
+                return true;
+            }
+            if (settings1.UsesOptimizedGeometry != settings2.UsesOptimizedGeometry)
             {
                 return true;
             }
             if (settings1.GenerateLightmapUVs != settings2.GenerateLightmapUVs)
+            {
+                return true;
+            }
+            if (settings1.SubdivideVisualMesh != settings2.SubdivideVisualMesh)
+            {
+                return true;
+            }
+            if (settings1.SubdivideVisualMesh && settings1.SubdivisionCellSize != settings2.SubdivisionCellSize)
             {
                 return true;
             }

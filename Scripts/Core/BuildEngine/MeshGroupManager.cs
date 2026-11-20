@@ -66,8 +66,90 @@ namespace Sabresaurus.SabreCSG
             meshGroupHolder.DestroyChildrenImmediate();
         }
 
+        // Polygons that are built into the same mesh. Owner is null when meshes aren't being split
+        private class MeshBucket
+        {
+            public readonly Transform Owner;
+            public readonly Material Material;
+            public readonly List<PolygonEntry> Polygons = new List<PolygonEntry>();
+
+            public MeshBucket(Transform owner, Material material)
+            {
+                Owner = owner;
+                Material = material;
+            }
+
+            public string GameObjectName
+            {
+                get { return Owner != null ? Owner.name + " - " + Material.name : "MaterialMesh"; }
+            }
+        }
+
+        private struct MeshBucketKey : IEquatable<MeshBucketKey>
+        {
+            private readonly Transform owner;
+            private readonly Material material;
+
+            public MeshBucketKey(Transform owner, Material material)
+            {
+                this.owner = owner;
+                this.material = material;
+            }
+
+            public bool Equals(MeshBucketKey other)
+            {
+                return owner == other.owner && material == other.material;
+            }
+
+            public override bool Equals(object obj)
+            {
+                return obj is MeshBucketKey && Equals((MeshBucketKey)obj);
+            }
+
+            public override int GetHashCode()
+            {
+                int ownerHash = owner != null ? owner.GetHashCode() : 0;
+                return ownerHash * 397 ^ material.GetHashCode();
+            }
+        }
+
+        private static List<MeshBucket> BucketPolygons(PolygonEntry[] polygonIndex, Transform[] polygonOwners, CSGBuildSettings buildSettings)
+        {
+            List<MeshBucket> buckets = new List<MeshBucket>();
+            Dictionary<MeshBucketKey, MeshBucket> bucketsByKey = new Dictionary<MeshBucketKey, MeshBucket>();
+
+            for (int i = 0; i < polygonIndex.Length; i++)
+            {
+                PolygonEntry entry = polygonIndex[i];
+
+                if (!PolygonEntry.IsValid(entry)
+                    || entry.Positions.Length == 0
+                    || entry.ExcludeFromBuild) // Skip polygons that weren't built
+                {
+                    continue;
+                }
+
+                Material material = entry.Material != null ? entry.Material : buildSettings.DefaultVisualMaterial;
+                Transform owner = polygonOwners != null ? polygonOwners[i] : null;
+
+                MeshBucketKey key = new MeshBucketKey(owner, material);
+                MeshBucket bucket;
+                if (!bucketsByKey.TryGetValue(key, out bucket))
+                {
+                    bucket = new MeshBucket(owner, material);
+                    bucketsByKey.Add(key, bucket);
+                    buckets.Add(bucket);
+                }
+
+                bucket.Polygons.Add(entry);
+            }
+
+            return buckets;
+        }
+
         internal static void BuildVisual(Transform meshGroupHolder,
             PolygonEntry[] polygonIndex,
+            Transform[] polygonOwners,
             CSGBuildSettings buildSettings,
             CSGBuildContext.BuildContext buildContext,
             MaterialMeshDictionary materialMeshDictionary)
@@ -79,35 +161,7 @@ namespace Sabresaurus.SabreCSG
             buildContext.buildMetrics.TotalVertices = 0;
             buildContext.buildMetrics.TotalTriangles = 0;
 
-            Dictionary<Material, List<PolygonEntry>> polygonMaterialTable = new Dictionary<Material, List<PolygonEntry>>();
-
-            for (int i = 0; i < polygonIndex.Length; i++)
-            {
-                PolygonEntry entry = polygonIndex[i];
-
-                if (PolygonEntry.IsValid(entry)
-                    && entry.Positions.Length > 0
-                    && !entry.ExcludeFromBuild) // Skip polygons that weren't built
-                {
-                    Material material = entry.Material;
-
-                    if (material == null)
-                    {
-                        material = buildSettings.DefaultVisualMaterial;
-                    }
-
-                    if (polygonMaterialTable.ContainsKey(material))
-                    {
-                        polygonMaterialTable[material].Add(entry);
-                    }
-                    else
-                    {
-                        polygonMaterialTable.Add(material, new List<PolygonEntry>() { entry });
-                    }
-                }
-            }
-
-            foreach (KeyValuePair<Material, List<PolygonEntry>> row in polygonMaterialTable)
+            foreach (MeshBucket bucket in BucketPolygons(polygonIndex, polygonOwners, buildSettings))
             {
                 Mesh mesh = new Mesh();
 
@@ -117,15 +171,15 @@ namespace Sabresaurus.SabreCSG
                 List<Color32> colorsList = new List<Color32>();
                 List<int> trianglesList = new List<int>();
 
-                for (int i = 0; i < row.Value.Count; i++)
+                for (int i = 0; i < bucket.Polygons.Count; i++)
                 {
                     int positionOffset = positionsList.Count;
                     int triangleOffset = trianglesList.Count;
 
-                    PolygonEntry polygonEntry = row.Value[i];
+                    PolygonEntry polygonEntry = bucket.Polygons[i];
                     if (polygonEntry.Positions.Length + positionOffset > MESH_VERTEX_LIMIT)
                     {
-                        FinalizeVisualMesh(meshGroupHolder, mesh, row.Key, buildSettings, buildContext, positionsList, normalsList, uvList, colorsList, trianglesList, materialMeshDictionary);
+                        FinalizeVisualMesh(meshGroupHolder, mesh, bucket.Material, bucket.GameObjectName, buildSettings, buildContext, positionsList, normalsList, uvList, colorsList, trianglesList, materialMeshDictionary);
                         mesh = new Mesh();
                         positionsList.Clear();
                         normalsList.Clear();
@@ -144,18 +198,19 @@ namespace Sabresaurus.SabreCSG
                         trianglesList.Add(polygonEntry.Triangles[j] + positionOffset);
                     }
 
-                    row.Value[i].BuiltMesh = mesh;
-                    row.Value[i].BuiltVertexOffset = positionOffset;
-                    row.Value[i].BuiltTriangleOffset = triangleOffset;
+                    bucket.Polygons[i].BuiltMesh = mesh;
+                    bucket.Polygons[i].BuiltVertexOffset = positionOffset;
+                    bucket.Polygons[i].BuiltTriangleOffset = triangleOffset;
                 }
 
-                FinalizeVisualMesh(meshGroupHolder, mesh, row.Key, buildSettings, buildContext, positionsList, normalsList, uvList, colorsList, trianglesList, materialMeshDictionary);
+                FinalizeVisualMesh(meshGroupHolder, mesh, bucket.Material, bucket.GameObjectName, buildSettings, buildContext, positionsList, normalsList, uvList, colorsList, trianglesList, materialMeshDictionary);
             }
         }
 
         internal static void FinalizeVisualMesh(Transform meshGroupHolder,
                         Mesh mesh,
                         Material material,
+                        string gameObjectName,
                         CSGBuildSettings buildSettings,
                         CSGBuildContext.BuildContext buildContext,
                         List<Vector3> positionsList,
@@ -165,6 +220,12 @@ namespace Sabresaurus.SabreCSG
                         List<int> trianglesList,
                         MaterialMeshDictionary materialMeshDictionary)
         {
+            // Optional: split large faces into a grid so per vertex lighting has enough vertices
+            if (buildSettings.SubdivideVisualMesh && buildSettings.SubdivisionCellSize > 0f)
+            {
+                VertexDensitySubdivision.Subdivide(positionsList, normalsList, uvList, colorsList, trianglesList, buildSettings.SubdivisionCellSize);
+            }
+
             Vector3[] positionsArray = new Vector3[positionsList.Count];
             Vector3[] normalsArray = new Vector3[normalsList.Count];
             Vector2[] uvArray = new Vector2[uvList.Count];
@@ -176,6 +237,12 @@ namespace Sabresaurus.SabreCSG
             uvList.CopyTo(uvArray);
             trianglesList.CopyTo(trianglesArray);
             colorsList.CopyTo(colorsArray);
+
+            // Subdivision can push a mesh past the 16 bit index limit
+            if (positionsArray.Length > 65000)
+            {
+                mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
+            }
 
             mesh.vertices = positionsArray;
             mesh.normals = normalsArray;
@@ -201,7 +268,7 @@ namespace Sabresaurus.SabreCSG
             buildContext.buildMetrics.TotalVertices += positionsArray.Length;
             buildContext.buildMetrics.TotalTriangles += trianglesArray.Length / 3;
 
-            GameObject newGameObject = new GameObject("MaterialMesh");
+            GameObject newGameObject = new GameObject(gameObjectName);
 
             // Allow any editor dependent code to fire, e.g. lightmap unwrapping, static flags
             if (OnFinalizeVisualMesh != null)

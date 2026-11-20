@@ -373,7 +373,7 @@ namespace Sabresaurus.SabreCSG
 					{
 						// Grab the polygons grouped by ID, optimizing them if requested
 						Dictionary<int, List<Polygon>> groupedPolygons =  null;
-                        if (buildSettings.OptimizeGeometry)
+                        if (buildSettings.UsesOptimizedGeometry)
 						{
 							// Return the optimal list of polygons (this call also updates BuiltVisualPolygons)
 							groupedPolygons = BrushCache.OptimizeVisual(allBrushCaches[brushIndex]);
@@ -424,7 +424,7 @@ namespace Sabresaurus.SabreCSG
 							{
 								// Intersection sets are different, need to triangulate separately
 								Dictionary<int, List<Polygon>> groupedPolygons =  null;
-                                if(buildSettings.OptimizeGeometry)
+                                if(buildSettings.UsesOptimizedGeometry)
 								{
 									// Return the optimal list of polygons (this call also updates BuiltCollisionPolygons)
 									groupedPolygons = BrushCache.OptimizeCollision(allBrushCaches[brushIndex]);
@@ -469,7 +469,9 @@ namespace Sabresaurus.SabreCSG
 			{
 				MeshGroupManager.Cleanup(meshGroupHolder);
 
-				MeshGroupManager.BuildVisual(meshGroupHolder, buildContext.VisualPolygonIndex, buildSettings, buildContext, materialMeshDictionary);
+				Transform[] polygonOwners = MeshOwnerResolver.Resolve(brushes, buildContext.VisualPolygonIndex, buildSettings.MeshSplitMode, rootTransform);
+
+				MeshGroupManager.BuildVisual(meshGroupHolder, buildContext.VisualPolygonIndex, polygonOwners, buildSettings, buildContext, materialMeshDictionary);
 
 				if(buildSettings.GenerateCollisionMeshes)
 				{
