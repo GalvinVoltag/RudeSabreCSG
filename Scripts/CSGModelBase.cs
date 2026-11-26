@@ -38,7 +38,7 @@ namespace Sabresaurus.SabreCSG
         protected bool polygonsRemoved = false;
 
         [SerializeField, HideInInspector]
-        protected CSGBuildSettings buildSettings = new CSGBuildSettings();
+        public CSGBuildSettings buildSettings = new CSGBuildSettings();
 
         [SerializeField, HideInInspector]
         protected CSGBuildSettings lastBuildSettings = new CSGBuildSettings();
@@ -220,7 +220,7 @@ namespace Sabresaurus.SabreCSG
             {
                 forceRebuild = true;
             }
-
+            
             // Make sure we have the most accurate list of brushes, ignoring inactive objects
             brushes = new List<Brush>(transform.GetComponentsInChildren<Brush>(false));
 
@@ -242,7 +242,8 @@ namespace Sabresaurus.SabreCSG
             if (buildContext == null)
                 buildContext = BuildContext;
 
-            BuildStatus buildStatus = CSGFactory.Build(brushes,
+            BuildStatus buildStatus = CSGFactory.Build(
+                brushes,
                 buildSettings,
                 buildContext,
                 this.transform,

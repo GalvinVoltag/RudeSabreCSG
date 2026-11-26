@@ -2,10 +2,16 @@
 
 using UnityEngine;
 using System.Collections;
+using UnityEditor;
 using UnityEngine.Rendering;
 
 namespace Sabresaurus.SabreCSG
 {
+    public interface ICustomEditorProvider
+    {
+        public void DrawInspector(Editor editor);
+    }
+    
     /// <summary>
     /// Decides which polygons end up sharing a built visual mesh. Every mode still keeps one material per mesh.
     /// </summary>
@@ -23,7 +29,7 @@ namespace Sabresaurus.SabreCSG
     public class CSGBuildSettings
     {
         // Whether to also do a collision pass
-        public bool GenerateCollisionMeshes = true;
+        // public bool GenerateCollisionMeshes = true;
 
         // Also calculate tangents (needed for Unity's built in bump mapping)
         public bool GenerateTangents = true;
@@ -31,7 +37,7 @@ namespace Sabresaurus.SabreCSG
         public MeshSplitMode MeshSplitMode = MeshSplitMode.PerMaterial;
 
         public bool OptimizeGeometry = false;
-
+        
         // Optimized geometry is only supported when meshes are split per material
         public bool UsesOptimizedGeometry
         {
@@ -135,10 +141,6 @@ namespace Sabresaurus.SabreCSG
         /// </summary>
         public static bool AreDifferent(CSGBuildSettings settings1, CSGBuildSettings settings2)
         {
-            if (settings1.GenerateCollisionMeshes != settings2.GenerateCollisionMeshes)
-            {
-                return true;
-            }
             if (settings1.GenerateTangents != settings2.GenerateTangents)
             {
                 return true;

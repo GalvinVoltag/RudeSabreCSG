@@ -19,6 +19,8 @@ namespace Sabresaurus.SabreCSG
     [ExecuteInEditMode]
 	public abstract class BrushBase : MonoBehaviour
 	{
+		// public abstract List<Polygon> Build();
+		
 		[SerializeField]
 		protected CSGMode mode = CSGMode.Add;
 
@@ -33,6 +35,10 @@ namespace Sabresaurus.SabreCSG
 
         [SerializeField]
         protected Volume volume = null;
+
+        [SerializeField] 
+        [HideInInspector]
+        public Transform builtMesh;
 
         protected bool destroyed = false;
 

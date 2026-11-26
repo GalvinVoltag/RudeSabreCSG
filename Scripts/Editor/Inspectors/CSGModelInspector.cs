@@ -11,7 +11,7 @@ namespace Sabresaurus.SabreCSG
     {
         // Build settings for the next build
 
-        private SerializedProperty generateCollisionMeshesProperty;
+        // private SerializedProperty generateCollisionMeshesProperty;
         private SerializedProperty generateTangentsProperty;
         private SerializedProperty meshSplitModeProperty;
         private SerializedProperty optimizeGeometryProperty;
@@ -44,7 +44,7 @@ namespace Sabresaurus.SabreCSG
         public void OnEnable()
         {
             // Build settings for the next build
-            generateCollisionMeshesProperty = serializedObject.FindProperty("buildSettings.GenerateCollisionMeshes");
+            // generateCollisionMeshesProperty = serializedObject.FindProperty("buildSettings.GenerateCollisionMeshes");
             generateTangentsProperty = serializedObject.FindProperty("buildSettings.GenerateTangents");
             meshSplitModeProperty = serializedObject.FindProperty("buildSettings.MeshSplitMode");
             optimizeGeometryProperty = serializedObject.FindProperty("buildSettings.OptimizeGeometry");
@@ -86,8 +86,8 @@ namespace Sabresaurus.SabreCSG
 
                 EditorGUIUtility.fieldWidth = 0;
                 EditorGUIUtility.labelWidth = 160;
-
-                EditorGUILayout.PropertyField(generateCollisionMeshesProperty, new GUIContent("Generate Collision Meshes"));
+                
+                // EditorGUILayout.PropertyField(generateCollisionMeshesProperty, new GUIContent("Generate Collision Meshes"));
                 EditorGUILayout.PropertyField(generateTangentsProperty, new GUIContent("Generate Tangents"));
                 EditorGUILayout.PropertyField(meshSplitModeProperty, new GUIContent("Mesh Split Mode", "How the built geometry is divided into meshes. Every mesh still uses a single material."));
 

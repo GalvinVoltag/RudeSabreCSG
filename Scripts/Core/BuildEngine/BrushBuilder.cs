@@ -9,160 +9,134 @@ using System.Reflection;
 
 namespace Sabresaurus.SabreCSG
 {
+	internal sealed class BrushSnapshot
+	{
+		public BrushCache Cache;
+		public int Index;
+		public BrushCache[] Earlier;
+		public BrushCache[] Later;
+		public List<Polygon> BuiltVisualPolygons;
+	}
+	
 	internal static class BrushBuilder
 	{
 		static int firstPolygonUID = 0; // Not sure about this
 
-		internal static void Build(BrushCache brushCache, int brushIndex, BrushCache[] allBrushCaches, bool isCollisionPass)
+		internal static List<Polygon> Build(BrushSnapshot snapshot)
 		{
+			bool isCollisionPass = false;
+
+			BrushCache brushCache = snapshot.Cache;
+			int brushIndex = snapshot.Index;
+			BrushCache[] earlier = snapshot.Earlier;
+			BrushCache[] later = snapshot.Later;
+			
+			List<Polygon> builtPolygons = new List<Polygon>();
 			firstPolygonUID = brushCache.Polygons[0].UniqueIndex;
-			if(brushCache.Mode == CSGMode.Add)
+			switch (brushCache.Mode)
 			{
-				int[] polygonsRemoved = new int[brushCache.Polygons.Length];
-				List<Polygon> builtPolygons = new List<Polygon>();
-
-				// Grab the intersecting brushes so we only work with what we actually intersect
-				List<BrushCache> intersectingBrushCaches = null;
-
-				if(isCollisionPass)
+				case CSGMode.Add:
 				{
-					intersectingBrushCaches = brushCache.IntersectingCollisionBrushCaches;
-				}
-				else
-				{
-					intersectingBrushCaches = brushCache.IntersectingVisualBrushCaches;
-				}
+					int[] polygonsRemoved = new int[brushCache.Polygons.Length];
+					
+					LinkedList<BrushChunk> brushChunks = new LinkedList<BrushChunk>();
+					brushChunks.AddFirst(new BrushChunk(new List<Polygon>(brushCache.Polygons.DeepCopy())));
 
-                LinkedList<BrushChunk> brushChunks = new LinkedList<BrushChunk>();
-                brushChunks.AddFirst(new BrushChunk(new List<Polygon>(brushCache.Polygons.DeepCopy())));
-
-				for (int i = 0; i < intersectingBrushCaches.Count; i++) 
-				{
-					if(intersectingBrushCaches[i] == null)
+					List<Polygon> excludedPolygons = new List<Polygon>();
+					foreach (BrushCache intersectingBrush in earlier)
 					{
-						continue;
-					}
-
-					int index = Array.IndexOf(allBrushCaches, intersectingBrushCaches[i]);
-					if(index <= brushIndex) // Earlier brush
-					{
-						// Split the chunks so that polygons can be removed as necessary
-						SplitBy(brushChunks, intersectingBrushCaches[i]);
-					}
-					else
-					{
-						// Split by the other brush and remove any chunks inside the later brush
-						SplitAndRemove(brushChunks, intersectingBrushCaches[i], polygonsRemoved);
-					}
-				}
-
-                List<Polygon> excludedPolygons = new List<Polygon>();
-				for (int i = 0; i < intersectingBrushCaches.Count; i++) 
-				{
-					if(intersectingBrushCaches[i] == null)
-					{
-						continue;
-					}
-
-					int index = Array.IndexOf(allBrushCaches, intersectingBrushCaches[i]);
-					if(index <= brushIndex) // Earlier brush
-					{
-						if(intersectingBrushCaches[i].Mode == CSGMode.Add)
+						if(intersectingBrush == null)
+							continue;
+						
+						SplitBy(brushChunks, intersectingBrush);
+						
+						if(intersectingBrush.Mode == CSGMode.Add)
 						{
-//							// Split the chunks so that polygons can be removed as necessary
-//							SplitBy(brushChunks, intersectingBrushCaches[i]);
-							// Remove any polygons that are contained in an earlier addition
-							RemoveInteriorPolygons(brushChunks, intersectingBrushCaches[i], excludedPolygons, polygonsRemoved);
+							// // Split the chunks so that polygons can be removed as necessary
+							// SplitBy(brushChunks, intersectingBrushCaches[i]);
+							//  Remove any polygons that are contained in an earlier addition
+							RemoveInteriorPolygons(brushChunks, intersectingBrush, excludedPolygons, polygonsRemoved);
 						}
-						else if (intersectingBrushCaches[i].Mode == CSGMode.Subtract)
-                        {
+						else if (intersectingBrush.Mode == CSGMode.Subtract)
+						{
 							// Restore any polygons that were removed when inside an addition but are now inside a subsequent subtraction
-							RestoreInteriorPolygons(brushChunks, intersectingBrushCaches[i], excludedPolygons, polygonsRemoved);
+							RestoreInteriorPolygons(brushChunks, intersectingBrush, excludedPolygons, polygonsRemoved);
 						}
 					}
-					else // Later brush
+
+					foreach (BrushCache intersectingBrush in later)
 					{
-						if(intersectingBrushCaches[i].Mode == CSGMode.Add)
+						if(intersectingBrush == null)
+							continue;
+						
+						SplitAndRemove(brushChunks, intersectingBrush, polygonsRemoved);
+						
+						if(intersectingBrush.Mode == CSGMode.Add)
 						{
 							// Remove any polygons that will be contrained by a later additive brush
-							RemoveInteriorPolygons(brushChunks, intersectingBrushCaches[i], excludedPolygons, polygonsRemoved);
+							RemoveInteriorPolygons(brushChunks, intersectingBrush, excludedPolygons, polygonsRemoved);
 						}
-						else if (intersectingBrushCaches[i].Mode == CSGMode.Subtract)
-                        {
-							// If the later brush is subtractive, extract any subtractive polygons and add to these chunks
-							ExtractSubtractionPolygons(brushCache, brushChunks, intersectingBrushCaches[i], isCollisionPass);
-						}
-					}
-				}
-
-                // Concat all the chunk polygons into one list
-                for (LinkedListNode<BrushChunk> current = brushChunks.First; current != null; current = current.Next)
-				{
-					builtPolygons.AddRange(current.Value.Polygons);
-				}
-
-                // TODO: Is it faster without RemoveAt?
-                for (int i = 0; i < polygonsRemoved.Length; i++) 
-				{
-					if(polygonsRemoved[i] == 0) // Found a complete polygon
-					{
-						int uniqueIndex = firstPolygonUID + i;
-						// TODO: Remove existing polygons with UniqueID
-						for (int j = 0; j < builtPolygons.Count; j++) 
+						else if (intersectingBrush.Mode == CSGMode.Subtract)
 						{
-							if(builtPolygons[j].UniqueIndex == uniqueIndex)
-							{
-								builtPolygons.RemoveAt(j);
-								j--;
-							}
+							// If the later brush is subtractive, extract any subtractive polygons and add to these chunks
+							ExtractSubtractionPolygons(brushCache, brushChunks, intersectingBrush, isCollisionPass);
 						}
-						// Add in polygon from the source polygons
-						builtPolygons.Add(brushCache.Polygons[i].DeepCopy());
 					}
-				}
 
-
-                // Remove any temporary polygons
-                List<Polygon> newBuiltPolygons = new List<Polygon>(builtPolygons.Count);
-                for (int i = 0; i < builtPolygons.Count; i++) 
-				{
-					if(!builtPolygons[i].ExcludeFromFinal)
+					// Concat all the chunk polygons into one list
+					for (LinkedListNode<BrushChunk> current = brushChunks.First; current != null; current = current.Next)
 					{
-                        newBuiltPolygons.Add(builtPolygons[i]);
+						builtPolygons.AddRange(current.Value.Polygons);
 					}
-				}
 
-                newBuiltPolygons.TrimExcess();
+					// TODO: Is it faster without RemoveAt?
+					for (int i = 0; i < polygonsRemoved.Length; i++) 
+					{
+						if(polygonsRemoved[i] == 0) // Found a complete polygon
+						{
+							int uniqueIndex = firstPolygonUID + i;
+							// TODO: Remove existing polygons with UniqueID
+							for (int j = 0; j < builtPolygons.Count; j++) 
+							{
+								if(builtPolygons[j].UniqueIndex == uniqueIndex)
+								{
+									builtPolygons.RemoveAt(j);
+									j--;
+								}
+							}
+							// Add in polygon from the source polygons
+							builtPolygons.Add(brushCache.Polygons[i].DeepCopy());
+						}
+					}
 
-                builtPolygons = newBuiltPolygons;
 
-                // Finally, provide the brush cache with the built polygons
-                if (isCollisionPass)
-				{
-					brushCache.SetCollisionBuiltPolygons(builtPolygons);
-				}
-				else
-				{
+					// Remove any temporary polygons
+					List<Polygon> newBuiltPolygons = new List<Polygon>(builtPolygons.Count);
+					for (int i = 0; i < builtPolygons.Count; i++) 
+					{
+						if(!builtPolygons[i].ExcludeFromFinal)
+						{
+							newBuiltPolygons.Add(builtPolygons[i]);
+						}
+					}
+
+					newBuiltPolygons.TrimExcess();
+
+					builtPolygons = newBuiltPolygons;
+
+					// Finally, provide the brush cache with the built polygons
 					brushCache.SetVisualBuiltPolygons(builtPolygons);
+					
+					break;
 				}
-
-//				for (int i = 0; i < brushChunks.Count; i++) 
-//				{
-//					DebugExclude.DisplayChunk(DebugExclude.hackyHolder, brushChunks[i], brushIndex);
-//				}
-			}
-			else if (brushCache.Mode == CSGMode.Subtract)
-            {
-				// Do nothing for subtractive brushes. This is handled by the additive brushes they interact with
-				if(isCollisionPass)
-				{
-					brushCache.SetCollisionBuiltPolygons(brushCache.BuiltCollisionPolygons);
-				}
-				else
+				case CSGMode.Subtract:
 				{
 					brushCache.SetVisualBuiltPolygons(brushCache.BuiltVisualPolygons);
+					break;
 				}
 			}
+			
+			return builtPolygons;
 		}
 
 		private static void ExtractSubtractionPolygons(BrushCache brushCacheSource, LinkedList<BrushChunk> brushChunks, BrushCache removee, bool isCollisionPass)

@@ -2,8 +2,10 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using UnityEngine;
+using Object = System.Object;
 
 namespace Sabresaurus.SabreCSG
 {
@@ -32,7 +34,21 @@ namespace Sabresaurus.SabreCSG
 		static bool buildInProgress = false;
 		static bool readyForFinalize = false;
 
-		static Transform meshGroup;
+		private static Transform _meshGroup;
+		static Transform meshGroup
+		{
+			get
+			{
+				if (_meshGroup != null) return _meshGroup;
+				_meshGroup = rootTransform.Find("MeshGroup");
+				if (meshGroup == null)
+				{
+					_meshGroup = new GameObject("MeshGroup").transform;
+					_meshGroup.parent = rootTransform;
+				}
+				return _meshGroup;
+			}
+		}
 		static Transform meshGroupHolder;
 
         static bool Prepare(Transform rootTransform)
@@ -104,7 +120,8 @@ namespace Sabresaurus.SabreCSG
 				return buildOccurred ? BuildStatus.Complete : BuildStatus.Unnecessary;
 			}
 		}
-
+		
+		
 		internal static void CoreBuild(object state)
 		{
 			MeshGroupManager.OnFinalizeVisualMesh = onFinalizeVisualMesh;
@@ -113,6 +130,7 @@ namespace Sabresaurus.SabreCSG
 			if(forceRebuild)
 			{				
 				buildContext.ClearAll();
+				meshGroup.DestroyChildrenImmediate();
 			}
 
 			buildStartTime = DateTime.Now;
@@ -158,90 +176,48 @@ namespace Sabresaurus.SabreCSG
 
 			// Create a list of builders that need to be built
 			bool[] shouldBuildVisible = new bool[allBrushCaches.Length];
-			bool[] shouldBuildCollision = new bool[allBrushCaches.Length];
-
-			for (int brushIndex = 0; brushIndex < allBrushCaches.Length; brushIndex++) 
+			
+			// Dude! What the fuck was that nesting? Ew! Good thing I fixed it for ya.
+			for (int brushIndex = 0; brushIndex < allBrushCaches.Length; brushIndex++)
 			{
-				if(!allBrushCaches[brushIndex].Built && brushes[brushIndex].IsVisible)
+				if (allBrushCaches[brushIndex].Built || !brushes[brushIndex].IsVisible) 
+					continue;
+				
+				shouldBuildVisible[brushIndex] = true;
+				brushesToBuild++;
+
+				// Mark all the intersecting brushes as needing to build
+				foreach (BrushCache brushCache in allBrushCaches[brushIndex].IntersectingVisualBrushCaches) 
 				{
-					shouldBuildVisible[brushIndex] = true;
+					// TODO: This is slower than it needs to be
+					int otherIndex = Array.IndexOf(allBrushCaches, brushCache);
+					if (otherIndex == -1) continue;
+					if (shouldBuildVisible[otherIndex] || !brushes[otherIndex].IsVisible) 
+						continue;
+					
+					shouldBuildVisible[otherIndex] = true;
 					brushesToBuild++;
 
-					// Mark all the intersecting brushes as needing to build
-					foreach (BrushCache brushCache in allBrushCaches[brushIndex].IntersectingVisualBrushCaches) 
+					if (brushes[otherIndex].Mode != CSGMode.Subtract) 
+						continue;
+					
+					foreach (BrushCache brushCache2 in allBrushCaches[otherIndex].IntersectingVisualBrushCaches) 
 					{
 						// TODO: This is slower than it needs to be
-						int otherIndex = Array.IndexOf(allBrushCaches, brushCache);
-						if(otherIndex != -1)
-						{
-							if(!shouldBuildVisible[otherIndex] && brushes[otherIndex].IsVisible)
-							{
-								shouldBuildVisible[otherIndex] = true;
-								brushesToBuild++;
-
-								if(brushes[otherIndex].Mode == CSGMode.Subtract)
-								{
-									foreach (BrushCache brushCache2 in allBrushCaches[otherIndex].IntersectingVisualBrushCaches) 
-									{
-										// TODO: This is slower than it needs to be
-										int otherIndex2 = Array.IndexOf(allBrushCaches, brushCache2);
-										if(otherIndex2 != -1)
-										{
-											if(!shouldBuildVisible[otherIndex2] && brushes[otherIndex2].IsVisible)
-											{
-												shouldBuildVisible[otherIndex2] = true;
-												brushesToBuild++;
-											}
-										}
-									}
-								}
-							}
-						}
+						int otherIndex2 = Array.IndexOf(allBrushCaches, brushCache2);
+						if (otherIndex2 == -1 || shouldBuildVisible[otherIndex2] || !brushes[otherIndex2].IsVisible)
+							continue;
+						
+						shouldBuildVisible[otherIndex2] = true;
+						brushesToBuild++;
 					}
 				}
+				
 			}
 
 			for (int brushIndex = 0; brushIndex < allBrushCaches.Length; brushIndex++) 
 			{
-				if(!allBrushCaches[brushIndex].Built && brushes[brushIndex].HasCollision)
-				{
-					shouldBuildCollision[brushIndex] = true;
-					// TODO: This is slower than it needs to be
-					foreach (BrushCache brushCache in allBrushCaches[brushIndex].IntersectingCollisionBrushCaches) 
-					{
-						int otherIndex = Array.IndexOf(allBrushCaches, brushCache);
-						if(otherIndex != -1)
-						{
-							if(!shouldBuildCollision[otherIndex] && brushes[otherIndex].HasCollision)
-							{
-								shouldBuildCollision[otherIndex] = true;
-								brushesToBuild++;
-
-								if(brushes[otherIndex].Mode == CSGMode.Subtract)
-								{
-									foreach (BrushCache brushCache2 in allBrushCaches[otherIndex].IntersectingCollisionBrushCaches) 
-									{
-										// TODO: This is slower than it needs to be
-										int otherIndex2 = Array.IndexOf(allBrushCaches, brushCache2);
-										if(otherIndex2 != -1)
-										{
-											if(!shouldBuildCollision[otherIndex2] && brushes[otherIndex2].HasCollision)
-											{
-												shouldBuildCollision[otherIndex2] = true;
-												brushesToBuild++;
-											}
-										}
-									}
-								}
-							}
-						}
-					}
-				}
-			}
-
-			for (int brushIndex = 0; brushIndex < allBrushCaches.Length; brushIndex++) 
-			{
-				if(shouldBuildVisible[brushIndex] || shouldBuildCollision[brushIndex])
+				if(shouldBuildVisible[brushIndex])
 				{
 					allBrushCaches[brushIndex].ResetForBuild(newVisualPolygonIndex, newCollisionPolygonIndex);
 				}
@@ -256,197 +232,62 @@ namespace Sabresaurus.SabreCSG
 					onProgressChange(0);
 				}
 			}
-
-			// TODO: All this should be possible to parallelise.
-			for (int brushIndex = 0; brushIndex < allBrushCaches.Length; brushIndex++) 
+			
+			
+			// bake indexes
+			var indexOf = new Dictionary<BrushCache,int>(allBrushCaches.Length);
+			for (int i = 0; i < allBrushCaches.Length; i++) indexOf[allBrushCaches[i]] = i;
+			
+			
+			for (int index = 0; index < allBrushCaches.Length; index++)
 			{
-				if(shouldBuildVisible[brushIndex])
+				if (!shouldBuildVisible[index]) continue;
+				
+				BrushCache current = allBrushCaches[index];
+				
+				
+				List<Polygon> builtPolygons = BrushBuilder.Build(new BrushSnapshot
 				{
-					// Intersecting builders can probably be calculated at edit time
-					BrushBuilder.Build(allBrushCaches[brushIndex], brushIndex, allBrushCaches, false);
+					Index = index,
+					Cache = current,
+					Earlier = current.IntersectingVisualBrushCaches
+						.Where(bc => indexOf[bc] < index).ToArray(),
+					Later = current.IntersectingVisualBrushCaches
+						.Where(bc => indexOf[bc] > index).ToArray()
+				});
+				brushesBuilt++;
+				
+				current.SetBuilt();
 
-                    brushesBuilt++;
-
-					// If we are not required to build collision (either for this brush, or at all) then we've built it!
-					if(!shouldBuildCollision[brushIndex] || !buildSettings.GenerateCollisionMeshes)
-					{
-						allBrushCaches[brushIndex].SetBuilt();
-					}
-
-					if(showProgressBar)
-					{
-						if(state == null && onProgressChange != null) // Can only fire on main thread
-						{
-							onProgressChange(brushesBuilt / (float)brushesToBuild);
-						}
-					}
-					else
-					{
-						if(DateTime.Now - buildStartTime > new TimeSpan(0,0,1))
-						{
-							showProgressBar = true;
-							if(state == null && onProgressChange != null) // Can only fire on main thread
-							{
-								onProgressChange(brushesBuilt / (float)brushesToBuild);
-							}
-						}
-					}
+				// Can only fire on main thread
+				if (state != null || onProgressChange == null) continue;
+				
+				if(showProgressBar)
+					onProgressChange(brushesBuilt / (float)brushesToBuild);
+				else if(DateTime.Now - buildStartTime > new TimeSpan(0,0,1))
+				{
+					showProgressBar = true;
+					onProgressChange(brushesBuilt / (float)brushesToBuild);
 				}
+				BrushCache.ReclaimStolenVisualPolygons(current);
+
+				if (builtPolygons.Count == 0) continue;
+				
+				buildContext.SetVisualMapping(brushes[index], builtPolygons);
+				if (builtPolygons.Count == 0)
+				{
+					Debug.LogWarning("skipping empty brush");
+					continue;
+				}
+
+				Prepare(rootTransform);
+				GameObject builtMesh = BuildBrushVisualMesh(brushes[index].name, builtPolygons);
+				builtMesh.transform.SetParent(meshGroup, false);
+				if (brushes[index].builtMesh != null) UnityEngine.Object.DestroyImmediate(brushes[index].builtMesh.gameObject);
+				brushes[index].builtMesh = builtMesh.transform;
 			}
-
-			for (int brushIndex = 0; brushIndex < allBrushCaches.Length; brushIndex++) 
-			{
-				if(shouldBuildVisible[brushIndex])
-				{
-					// Intersecting builders can probably be calculated at edit time
-					BrushCache.ReclaimStolenVisualPolygons(allBrushCaches[brushIndex]);
-				}
-			}
-
-			if(buildSettings.GenerateCollisionMeshes)
-			{
-				for (int brushIndex = 0; brushIndex < allBrushCaches.Length; brushIndex++) 
-				{
-					if(shouldBuildCollision[brushIndex])
-					{
-						if(allBrushCaches[brushIndex].CollisionVisualEqual)
-						{
-
-						}
-						else
-						{
-							// Intersecting builders can probably be calculated at edit time
-							BrushBuilder.Build(allBrushCaches[brushIndex], brushIndex, allBrushCaches, true);
-
-							brushesBuilt++;
-
-							if(showProgressBar)
-							{
-								if(state == null && onProgressChange != null) // Can only fire on main thread
-								{
-									onProgressChange(brushesBuilt / (float)brushesToBuild);
-								}
-							}
-							else
-							{
-								if(DateTime.Now - buildStartTime > new TimeSpan(0,0,1))
-								{
-									showProgressBar = true;
-									if(state == null && onProgressChange != null) // Can only fire on main thread
-									{
-										onProgressChange(brushesBuilt / (float)brushesToBuild);
-									}
-								}
-							}
-						}
-
-						allBrushCaches[brushIndex].SetBuilt();
-					}
-				}
-
-				for (int brushIndex = 0; brushIndex < allBrushCaches.Length; brushIndex++) 
-				{
-					if(shouldBuildCollision[brushIndex])
-					{
-						if(!allBrushCaches[brushIndex].CollisionVisualEqual)
-						{
-							// Intersecting builders can probably be calculated at edit time
-							BrushCache.ReclaimStolenCollisionPolygons(allBrushCaches[brushIndex]);
-						}
-					}
-				}
-			}
-
+			
 			time1 = DateTime.Now;
-
-			// TODO: Can parallelise the vertex/index buffer generation, built putting them into mesh needs to be main thread
-			// Triangulate the new polygons
-			if(brushesBuilt > 0)
-			{
-                //VisualDebug.ClearAll();
-
-                Dictionary<int, List<Polygon>> allGroupedPolygons = new Dictionary<int, List<Polygon>>();
-
-				for (int brushIndex = 0; brushIndex < allBrushCaches.Length; brushIndex++) 
-				{
-					if(shouldBuildVisible[brushIndex])
-					{
-						// Grab the polygons grouped by ID, optimizing them if requested
-						Dictionary<int, List<Polygon>> groupedPolygons =  null;
-                        if (buildSettings.UsesOptimizedGeometry)
-						{
-							// Return the optimal list of polygons (this call also updates BuiltVisualPolygons)
-							groupedPolygons = BrushCache.OptimizeVisual(allBrushCaches[brushIndex]);
-						}
-						else
-                        {
-							groupedPolygons = allBrushCaches[brushIndex].GetGroupedBuiltVisualPolygons();
-						}
-
-						// Set the visual mapping from the built polygons (used by SurfaceEditor)
-						List<Polygon> polygons = allBrushCaches[brushIndex].BuiltVisualPolygons;
-						buildContext.SetVisualMapping(brushes[brushIndex], polygons);
-
-						// Add each set of polygons to the dictionary to be triangulated
-                        foreach (KeyValuePair<int, List<Polygon>> row in groupedPolygons)
-                        {
-                            allGroupedPolygons.Add(row.Key, row.Value);
-                        }
-                    }
-				}
-
-				bool useIndividualVertices = buildSettings.GenerateLightmapUVs; // Generate individual vertices for unwrapped geometry
-
-				MeshGroupManager.TriangulateNewPolygons(useIndividualVertices, allGroupedPolygons, buildContext.VisualPolygonIndex);
-
-				if(buildSettings.GenerateCollisionMeshes)
-				{
-					allGroupedPolygons.Clear();
-
-					for (int brushIndex = 0; brushIndex < allBrushCaches.Length; brushIndex++) 
-					{
-						if(shouldBuildCollision[brushIndex])
-						{
-							if(allBrushCaches[brushIndex].CollisionVisualEqual)
-							{
-								// Intersection sets equal, so just copy visual triangulation
-								List<Polygon> builtVisualPolygons = allBrushCaches[brushIndex].BuiltVisualPolygons;
-								for (int i = 0; i < builtVisualPolygons.Count; i++) 
-								{
-									PolygonEntry visualPolygon = buildContext.VisualPolygonIndex[builtVisualPolygons[i].UniqueIndex];
-									if(visualPolygon != null)
-									{
-										buildContext.CollisionPolygonIndex[builtVisualPolygons[i].UniqueIndex] = visualPolygon.DeepCopy();
-									}
-								}
-							}
-							else
-							{
-								// Intersection sets are different, need to triangulate separately
-								Dictionary<int, List<Polygon>> groupedPolygons =  null;
-                                if(buildSettings.UsesOptimizedGeometry)
-								{
-									// Return the optimal list of polygons (this call also updates BuiltCollisionPolygons)
-									groupedPolygons = BrushCache.OptimizeCollision(allBrushCaches[brushIndex]);
-								}
-								else
-								{
-									groupedPolygons = allBrushCaches[brushIndex].GetGroupedBuiltCollisionPolygons();
-								}
-
-								// Add each set of polygons to the dictionary to be triangulated
-								foreach (KeyValuePair<int, List<Polygon>> row in groupedPolygons)
-								{
-									allGroupedPolygons.Add(row.Key, row.Value);
-								}
-							}
-						}
-					}
-
-					useIndividualVertices = false; // Never use individual vertices for collision geometry
-					MeshGroupManager.TriangulateNewPolygons(useIndividualVertices, allGroupedPolygons, buildContext.CollisionPolygonIndex);
-				}
-			}
 
 			// If multithreaded
 			if(state != null)
@@ -454,6 +295,92 @@ namespace Sabresaurus.SabreCSG
 				// All done, tell the main thread to finish the build up
 				readyForFinalize = true;
 			}
+		}
+		
+		internal static GameObject BuildBrushVisualMesh(string objectName, List<Polygon> polygons)
+		{
+		    // 1. Bucket by material, first-seen order so output is stable
+		    List<Material> materials = new List<Material>();
+		    List<List<Polygon>> buckets = new List<List<Polygon>>();
+		    Dictionary<Material, int> lookup = new Dictionary<Material, int>();
+
+		    for (int i = 0; i < polygons.Count; i++)
+		    {
+		        Material material = polygons[i].Material;
+		        if (material == null) material = buildSettings.DefaultVisualMaterial;
+
+		        int bucket;
+		        if (!lookup.TryGetValue(material, out bucket))
+		        {
+		            bucket = materials.Count;
+		            lookup.Add(material, bucket);
+		            materials.Add(material);
+		            buckets.Add(new List<Polygon>());
+		        }
+		        buckets[bucket].Add(polygons[i]);
+		    }
+
+		    if (materials.Count == 0) return null;   // subtractives, fully carved brushes
+
+		    bool individualVertices = buildSettings.GenerateLightmapUVs;
+
+		    List<Vector3> positions = new List<Vector3>();
+		    List<Vector3> normals = new List<Vector3>();
+		    List<Vector2> uvs = new List<Vector2>();
+		    List<Color32> colors = new List<Color32>();
+		    List<int[]> submeshes = new List<int[]>(materials.Count);
+
+		    for (int i = 0; i < buckets.Count; i++)
+		    {
+		        Vector3[] p; Vector3[] n; Vector2[] u; Color32[] c; int[] t;
+		        MeshGroupManager.TriangulatePolygons(individualVertices, buckets[i], out t, out p, out n, out u, out c);
+
+		        int vertexOffset = positions.Count;
+		        positions.AddRange(p); normals.AddRange(n); uvs.AddRange(u); colors.AddRange(c);
+
+		        for (int j = 0; j < t.Length; j++) t[j] += vertexOffset;
+		        submeshes.Add(t);
+		    }
+
+		    Mesh mesh = new Mesh();
+		    if (positions.Count > 65535) mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
+
+		    mesh.SetVertices(positions);
+		    mesh.SetNormals(normals);
+		    mesh.SetUVs(0, uvs);
+		    mesh.SetColors(colors);
+
+		    if (meshGroupHolder.position != Vector3.zero || meshGroupHolder.rotation != Quaternion.identity
+		        || meshGroupHolder.lossyScale != Vector3.one)
+		    {
+		        mesh.LocalizeToTransform(meshGroupHolder);   // before triangles, as FinalizeVisualMesh does
+		    }
+
+		    mesh.subMeshCount = submeshes.Count;
+		    for (int i = 0; i < submeshes.Count; i++) mesh.SetTriangles(submeshes[i], i, false);
+
+		    if (buildSettings.GenerateTangents) mesh.GenerateTangents();
+
+		    buildContext.buildMetrics.TotalMeshes++;
+		    buildContext.buildMetrics.TotalVertices += positions.Count;
+		    int triangleCount = 0;
+		    for (int i = 0; i < submeshes.Count; i++) triangleCount += submeshes[i].Length / 3;
+		    buildContext.buildMetrics.TotalTriangles += triangleCount;
+
+		    GameObject newGameObject = new GameObject(objectName);
+		    if (MeshGroupManager.OnFinalizeVisualMesh != null) MeshGroupManager.OnFinalizeVisualMesh(newGameObject, mesh);
+
+		    newGameObject.AddComponent<MeshFilter>().sharedMesh = mesh;
+		    MeshRenderer renderer = newGameObject.AddComponent<MeshRenderer>();
+		    renderer.sharedMaterials = materials.ToArray();
+		    renderer.shadowCastingMode = buildSettings.ShadowCastingMode;
+		    renderer.reflectionProbeUsage = buildSettings.ReflectionProbeUsage;
+		    // newGameObject.transform.SetParent(meshGroupHolder, false);
+
+		    for (int i = 0; i < materials.Count; i++)
+		        materialMeshDictionary.Add(materials[i], mesh, newGameObject);   // Add() already supports many meshes per material
+		    
+		    return newGameObject;
 		}
 
 		internal static bool FinalizeBuild()
@@ -467,16 +394,11 @@ namespace Sabresaurus.SabreCSG
 			bool newGroupCreated = Prepare(rootTransform);
 			if(brushesBuilt > 0 || polygonsRemoved || newGroupCreated)
 			{
-				MeshGroupManager.Cleanup(meshGroupHolder);
+				// MeshGroupManager.Cleanup(meshGroupHolder);
 
 				Transform[] polygonOwners = MeshOwnerResolver.Resolve(brushes, buildContext.VisualPolygonIndex, buildSettings.MeshSplitMode, rootTransform);
 
 				MeshGroupManager.BuildVisual(meshGroupHolder, buildContext.VisualPolygonIndex, polygonOwners, buildSettings, buildContext, materialMeshDictionary);
-
-				if(buildSettings.GenerateCollisionMeshes)
-				{
-					MeshGroupManager.BuildCollision(meshGroupHolder, buildContext.CollisionPolygonIndex, buildSettings, collisionMeshDictionary);
-				}
 
                 // All done
                 DateTime time2 = DateTime.Now;
@@ -511,13 +433,13 @@ namespace Sabresaurus.SabreCSG
 
             public static GameObject CreateMaterialMesh(Transform rootTransform, Material material, Mesh mesh)
             {
-                meshGroup = rootTransform.Find("MeshGroup");
-                // Create a grouping object which will act as a parent for all the per material meshes
-                if (meshGroup == null)
-                {
-                    meshGroup = new GameObject("MeshGroup").transform;
-                    meshGroup.parent = rootTransform;
-                }
+                // meshGroup = rootTransform.Find("MeshGroup");
+                // // Create a grouping object which will act as a parent for all the per material meshes
+                // if (meshGroup == null)
+                // {
+                //     meshGroup = new GameObject("MeshGroup").transform;
+                //     meshGroup.parent = rootTransform;
+                // }
 
                 GameObject materialMesh = new GameObject("MaterialMesh", typeof(MeshFilter), typeof(MeshRenderer));
                 materialMesh.transform.SetParent(meshGroup, false);
@@ -532,20 +454,20 @@ namespace Sabresaurus.SabreCSG
 
             public static GameObject CreateCollisionMesh(Transform rootTransform, Mesh mesh)
             {
-                meshGroup = rootTransform.Find("MeshGroup");
-                // Create a grouping object which will act as a parent for all the per material meshes
-                if (meshGroup == null)
-                {
-                    meshGroup = new GameObject("MeshGroup").transform;
-                    meshGroup.parent = rootTransform;
-                }
-
+                // meshGroup = rootTransform.Find("MeshGroup");
+                // // Create a grouping object which will act as a parent for all the per material meshes
+                // if (meshGroup == null)
+                // {
+                //     meshGroup = new GameObject("MeshGroup").transform;
+                //     meshGroup.parent = rootTransform;
+                // }
+                //
                 GameObject colliderMesh = new GameObject("CollisionMesh", typeof(MeshCollider));
                 colliderMesh.transform.SetParent(meshGroup, false);
-
-                // Set the mesh to be rendered
-                colliderMesh.GetComponent<MeshCollider>().sharedMesh = mesh;
-
+                //
+                // // Set the mesh to be rendered
+                // colliderMesh.GetComponent<MeshCollider>().sharedMesh = mesh;
+                
                 return colliderMesh;
             }
     }

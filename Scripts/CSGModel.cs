@@ -2063,10 +2063,10 @@ namespace Sabresaurus.SabreCSG
 
             Mesh mesh = new Mesh();
             collisionMeshDictionary.Add(mesh);
-            GameObject newGameObject = CSGFactory.CreateCollisionMesh(this.transform, mesh);
+            GameObject collisionMesh = CSGFactory.CreateCollisionMesh(this.transform, mesh);
 
             // Apply the model layer, tag and appropriate static flags
-            ApplyModelAttributes(newGameObject, false);
+            ApplyModelAttributes(collisionMesh, false);
 
             return mesh;
         }

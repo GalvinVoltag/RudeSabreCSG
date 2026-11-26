@@ -45,7 +45,7 @@ Notes for how to get around certain bugs:
 
 ## Download
 
-[![Download SabreCSG](https://github.com/sabresaurus/SabreCSG/wiki/images/home/home-button-1.png)](https://github.com/sabresaurus/SabreCSG/archive/master.zip)
+[![Download SabreCSG](https://github.com/sabresaurus/SabreCSG/wiki/images/home/home-button-1.png)](https://github.com/GalvinVoltag/RudeSabreCSG/archive/refs/heads/master.zip)
 
 [![Installation Instructions](https://github.com/sabresaurus/SabreCSG/wiki/images/home/home-button-4.png)](https://youtu.be/KDheSZcagsw?t=30)
 
