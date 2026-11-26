@@ -275,7 +275,6 @@ namespace Sabresaurus.SabreCSG
 				
 				if (buildSettings.SubdivideVisualMesh)
 				{
-					Debug.Log("dividing man");
 					builtPolygons = GridSubdivide(builtPolygons,
 						brushes[index].transform,
 						buildSettings.SubdivisionCellSize);
@@ -286,7 +285,7 @@ namespace Sabresaurus.SabreCSG
 				
 				if (builtPolygons.Count == 0)
 				{
-					Debug.LogWarning("skipping empty brush");
+					// Debug.LogWarning("skipping empty brush");
 					continue;
 				}
 
@@ -351,7 +350,7 @@ namespace Sabresaurus.SabreCSG
 
 				for (int k = firstPlane; k <= lastPlane; k++)
 				{
-					Plane plane = new Plane(axis, k * cellSize);
+					Plane plane = new Plane(axis, -k * cellSize);
 
 					List<Polygon> frontPolygons;
 					List<Polygon> backPolygons;

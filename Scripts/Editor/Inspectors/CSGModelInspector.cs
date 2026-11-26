@@ -14,7 +14,6 @@ namespace Sabresaurus.SabreCSG
         // private SerializedProperty generateCollisionMeshesProperty;
         private SerializedProperty generateTangentsProperty;
         private SerializedProperty meshSplitModeProperty;
-        private SerializedProperty optimizeGeometryProperty;
         private SerializedProperty saveMeshesAsAssetsProperty;
         private SerializedProperty generateLightmapUVsProperty;
         private SerializedProperty subdivideVisualMeshProperty;
@@ -47,7 +46,6 @@ namespace Sabresaurus.SabreCSG
             // generateCollisionMeshesProperty = serializedObject.FindProperty("buildSettings.GenerateCollisionMeshes");
             generateTangentsProperty = serializedObject.FindProperty("buildSettings.GenerateTangents");
             meshSplitModeProperty = serializedObject.FindProperty("buildSettings.MeshSplitMode");
-            optimizeGeometryProperty = serializedObject.FindProperty("buildSettings.OptimizeGeometry");
             saveMeshesAsAssetsProperty = serializedObject.FindProperty("buildSettings.SaveMeshesAsAssets");
             generateLightmapUVsProperty = serializedObject.FindProperty("buildSettings.GenerateLightmapUVs");
             subdivideVisualMeshProperty = serializedObject.FindProperty("buildSettings.SubdivideVisualMesh");
@@ -121,9 +119,6 @@ namespace Sabresaurus.SabreCSG
                 GUILayout.Label("Experimental", EditorStyles.boldLabel);
                 EditorGUI.indentLevel = 1;
 
-                EditorGUI.BeginDisabledGroup(meshSplitModeProperty.enumValueIndex != (int)MeshSplitMode.PerMaterial);
-                EditorGUILayout.PropertyField(optimizeGeometryProperty, new GUIContent("Optimize Geometry", "Not available when meshes are split per brush or group."));
-                EditorGUI.EndDisabledGroup();
                 EditorGUILayout.PropertyField(saveMeshesAsAssetsProperty, new GUIContent("Save Meshes As Assets"));
                 EditorGUI.indentLevel = 0;
             }

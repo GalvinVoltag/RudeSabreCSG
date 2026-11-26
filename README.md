@@ -37,9 +37,7 @@ SabreCSG was originally sold on the [Unity Asset Store](https://www.assetstore.u
 
 Documentation and videos on how to use SabreCSG are available at the [SabreCSG Learn website](http://sabrecsg.com/learn/) or the [wiki](https://github.com/sabresaurus/SabreCSG/wiki).
 
-Notes for how to get around certain bugs:
-- PerBrush and PerGroup splitting modes can cause bugs with UV and Face tools. I recommend setting it to PerMaterial during edit, and turning it on before export.
-- SubdivideVisualMesh breaks Face editor, preventing changing materials and UVs. Disable this dueing edit.
+## Notes for how to get around certain bugs:
 - UI works sometimes, and doesn't in other times. If you can't click on any gizmos, then just move the camera a little with right click, or change your tool to Rotate or View.
 - The editor camera gets stuck sometimes. Changing Sabre tool to Face seems to relieve this bug at some times.
 

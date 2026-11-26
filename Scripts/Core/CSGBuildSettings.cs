@@ -35,15 +35,7 @@ namespace Sabresaurus.SabreCSG
         public bool GenerateTangents = true;
 
         public MeshSplitMode MeshSplitMode = MeshSplitMode.PerMaterial;
-
-        public bool OptimizeGeometry = false;
         
-        // Optimized geometry is only supported when meshes are split per material
-        public bool UsesOptimizedGeometry
-        {
-            get { return OptimizeGeometry && !IsSplittingMeshes; }
-        }
-
         public bool IsSplittingMeshes
         {
             get { return MeshSplitMode != MeshSplitMode.PerMaterial; }
@@ -62,7 +54,7 @@ namespace Sabresaurus.SabreCSG
 
         // Size of the subdivision grid in world units. Larger faces get an extra vertex every
         // SubdivisionCellSize units in each direction.
-        [Range(0.25f, 32f)]
+        [Range(1f, 32f)]
         public float SubdivisionCellSize = 4f;
 
         // Unwrap settings, note these are different to what is displayed in the Model Importer, see http://docs.unity3d.com/401/Documentation/Manual/LightmappingUV.html
@@ -146,10 +138,6 @@ namespace Sabresaurus.SabreCSG
                 return true;
             }
             if (settings1.MeshSplitMode != settings2.MeshSplitMode)
-            {
-                return true;
-            }
-            if (settings1.UsesOptimizedGeometry != settings2.UsesOptimizedGeometry)
             {
                 return true;
             }
