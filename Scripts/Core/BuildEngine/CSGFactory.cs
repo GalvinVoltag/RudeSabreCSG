@@ -269,11 +269,21 @@ namespace Sabresaurus.SabreCSG
 					showProgressBar = true;
 					onProgressChange(brushesBuilt / (float)brushesToBuild);
 				}
-				BrushCache.ReclaimStolenVisualPolygons(current);
+				// BrushCache.ReclaimStolenVisualPolygons(current);
 
 				if (builtPolygons.Count == 0) continue;
 				
+				if (buildSettings.SubdivideVisualMesh)
+				{
+					Debug.Log("dividing man");
+					builtPolygons = GridSubdivide(builtPolygons,
+						brushes[index].transform,
+						buildSettings.SubdivisionCellSize);
+					current.SetVisualBuiltPolygons(builtPolygons);
+				}
+				
 				buildContext.SetVisualMapping(brushes[index], builtPolygons);
+				
 				if (builtPolygons.Count == 0)
 				{
 					Debug.LogWarning("skipping empty brush");
@@ -296,6 +306,68 @@ namespace Sabresaurus.SabreCSG
 				readyForFinalize = true;
 			}
 		}
+		
+		/// <summary>
+		/// Subdivide a list of polygons into a brush-axis-aligned grid.
+		/// </summary>
+		/// <param name="polygons">original geometry</param>
+		/// <param name="brushTransform">transform of target brush</param>
+		/// <param name="cellSize">size of cells in the grid</param>
+		/// <returns></returns>
+		internal static List<Polygon> GridSubdivide(List<Polygon> polygons, Transform brushTransform, float cellSize)
+		{
+			if (polygons == null || polygons.Count == 0 || cellSize <= 0f || brushTransform == null)
+				return polygons;
+
+			
+			Vector3[] axes = { brushTransform.right, brushTransform.up, brushTransform.forward };
+
+			List<Polygon> current = polygons;
+
+			for (int axisIndex = 0; axisIndex < 3; axisIndex++)
+			{
+				Vector3 axis = axes[axisIndex];
+
+				float min = float.MaxValue;
+				float max = float.MinValue;
+
+				for (int polygonIndex = 0; polygonIndex < current.Count; polygonIndex++)
+				{
+					Vertex[] vertices = current[polygonIndex].Vertices;
+					for (int vertexIndex = 0; vertexIndex < vertices.Length; vertexIndex++)
+					{
+						float distance = Vector3.Dot(vertices[vertexIndex].Position, axis);
+						if (distance < min) min = distance;
+						if (distance > max) max = distance;
+					}
+				}
+
+				// skip brushes that are smaller than the grid
+				// if (max - min < cellSize)
+				// 	continue;
+
+				int firstPlane = Mathf.CeilToInt((min / cellSize) + 0.0001f);
+				int lastPlane = Mathf.FloorToInt((max / cellSize) - 0.0001f);
+
+				for (int k = firstPlane; k <= lastPlane; k++)
+				{
+					Plane plane = new Plane(axis, k * cellSize);
+
+					List<Polygon> frontPolygons;
+					List<Polygon> backPolygons;
+
+					// Unlike SplitPolygonsByPlane this does not construct caps, which is good
+					if (!PolygonFactory.SplitCoplanarPolygonsByPlane(current, plane, out frontPolygons, out backPolygons))
+						continue;
+
+					frontPolygons.AddRange(backPolygons);
+					current = frontPolygons;
+				}
+			}
+
+			return current;
+		}
+
 		
 		internal static GameObject BuildBrushVisualMesh(string objectName, List<Polygon> polygons)
 		{
@@ -396,9 +468,9 @@ namespace Sabresaurus.SabreCSG
 			{
 				// MeshGroupManager.Cleanup(meshGroupHolder);
 
-				Transform[] polygonOwners = MeshOwnerResolver.Resolve(brushes, buildContext.VisualPolygonIndex, buildSettings.MeshSplitMode, rootTransform);
+				// Transform[] polygonOwners = MeshOwnerResolver.Resolve(brushes, buildContext.VisualPolygonIndex, buildSettings.MeshSplitMode, rootTransform);
 
-				MeshGroupManager.BuildVisual(meshGroupHolder, buildContext.VisualPolygonIndex, polygonOwners, buildSettings, buildContext, materialMeshDictionary);
+				// MeshGroupManager.BuildVisual(meshGroupHolder, buildContext.VisualPolygonIndex, polygonOwners, buildSettings, buildContext, materialMeshDictionary);
 
                 // All done
                 DateTime time2 = DateTime.Now;

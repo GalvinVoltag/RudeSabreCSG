@@ -946,7 +946,7 @@ namespace Sabresaurus.SabreCSG
                         matchedBrushes.Add(sourceTargetPolygon, brush);
 
                         // Inform the brush cache that the polygons have changed, but that a rebuild isn't necessary
-                        brush.RecachePolygons(false);
+                        brush.RecachePolygons(true);
 
                         // All done, no need to test any more polygons, just return out
                         return;
@@ -1233,7 +1233,7 @@ namespace Sabresaurus.SabreCSG
             }
 
             // Inform the brush cache that the polygons have changed, but that a rebuild isn't necessary
-            brush.RecachePolygons(false);
+            brush.RecachePolygons(true);
             EditorHelper.SetDirty(brush as PrimitiveBrush);
         }
 
@@ -1505,7 +1505,7 @@ namespace Sabresaurus.SabreCSG
 
                     EditorHelper.SetDirty(matchedBrushes[selectedSourcePolygons[i]]);
                     // Tell the brush that the polygons have changed but that there's no need to rebuild
-                    matchedBrushes[selectedSourcePolygons[i]].RecachePolygons(false);
+                    matchedBrushes[selectedSourcePolygons[i]].RecachePolygons(true);
                 }
             }
         }
@@ -2392,7 +2392,7 @@ namespace Sabresaurus.SabreCSG
                     EditorHelper.SetDirty(entry.BuiltMesh);
 
                     // Inform the brush cache that the polygons have changed, but that a rebuild isn't necessary
-                    brush.RecachePolygons(false);
+                    brush.RecachePolygons(true);
                 }
             }
         }
@@ -2479,7 +2479,7 @@ namespace Sabresaurus.SabreCSG
                 }
 
                 // Inform the brush cache that the polygons have changed, but that a rebuild isn't necessary
-                brush.RecachePolygons(false);
+                brush.RecachePolygons(true);
             }
         }
 
@@ -2564,7 +2564,7 @@ namespace Sabresaurus.SabreCSG
                 }
 
                 // Inform the brush cache that the polygons have changed, but that a rebuild isn't necessary
-                brush.RecachePolygons(false);
+                brush.RecachePolygons(true);
             }
         }
 
@@ -2946,7 +2946,7 @@ namespace Sabresaurus.SabreCSG
             entry.BuiltTriangleOffset = destTriangleCount;
             entry.BuiltVertexOffset = destVertexCount;
 
-            matchedBrushes[polygon].RecachePolygons(false);
+            matchedBrushes[polygon].RecachePolygons(true);
 
             for (int i = 0; i < matchedBrushes[polygon].BrushCache.BuiltVisualPolygons.Count; i++)
             {
@@ -2993,7 +2993,7 @@ namespace Sabresaurus.SabreCSG
                 }
 
                 // Inform the brush cache that the polygons have changed, but that a rebuild isn't necessary
-                matchedBrushes[polygon].RecachePolygons(false);
+                matchedBrushes[polygon].RecachePolygons(true);
             }
         }
 

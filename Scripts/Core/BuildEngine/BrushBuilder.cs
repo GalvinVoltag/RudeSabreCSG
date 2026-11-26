@@ -138,6 +138,8 @@ namespace Sabresaurus.SabreCSG
 			
 			return builtPolygons;
 		}
+		
+		
 
 		private static void ExtractSubtractionPolygons(BrushCache brushCacheSource, LinkedList<BrushChunk> brushChunks, BrushCache removee, bool isCollisionPass)
 		{
